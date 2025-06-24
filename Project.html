@@ -1,0 +1,172 @@
+<html>
+<head>
+<title>Weather Forecasting Project</title>
+<link rel="stylesheet" href="Design.css">
+</head>
+<body>
+    <div class="layout">
+        <div class="search-container">
+            <div class="search-bar">
+                <input type="text" id="cityInput" placeholder="Enter City Name">
+                <button id="voiceSearch"><img src="Images/mic.png"></button>
+                <button id="searchBtn"><img src="Images/search.png"></button>
+            </div>
+        </div>
+        <div class="language">
+            <label for="langSelect">Language:</label>
+            <select id="langSelect">
+                <option value="en">English</option>
+                <option value="hi">Hindi</option>
+            </select>
+        </div>
+        <div class="error">
+            <p>Invalid City Name! Please Enter a Valid City Name.</p>
+        </div>
+        <div class="weather" style="display: none;">
+            <img src="Images/weather.png" class="weatherIcon">
+            <h1 class="temperature">°C</h1>
+            <h2 class="city"></h2>
+            <div class="details">
+                <div class="icons">
+                    <img src="Images/humidity.png">
+                    <div>
+                        <p class="humidity"> %</p>
+                        <p>Humidity</p>
+                    </div>
+                </div>
+                <div class="icons">
+                    <img src="Images/wind.png">
+                    <div>
+                        <p class="wind"> km/h</p>
+                        <p>Wind Speed</p>
+                    </div>
+                </div>
+                <div class="icons">
+                    <img src="Images/air-quality.png" style="width: 70px; margin-right: 2px;">
+                    <div>
+                        <p class="aqi"></p>
+                        <p>Air Quality Index</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="forecast" style="display: none;">
+            <h3>5-Day Forecast</h3>
+            <div class="forecast-container"></div>
+        </div>
+    </div>
+<script language="javascript">
+const weatherApiUrl = "http://127.0.0.1:5000/weather"; 
+const forecastApiUrl = "http://127.0.0.1:5000/forecast"; 
+const airQualityApiUrl = "http://127.0.0.1:5000/air_quality"; 
+const searchBox = document.querySelector("#cityInput");
+const searchBtn = document.querySelector("#searchBtn");
+const voiceSearchBtn = document.querySelector("#voiceSearch");
+const langSelect = document.querySelector("#langSelect");
+const weatherSection = document.querySelector(".weather");
+const forecastSection = document.querySelector(".forecast");
+const weatherIcon = document.querySelector(".weatherIcon");
+const errorDisplay = document.querySelector(".error");
+const aqiDisplay = document.querySelector(".aqi");
+async function checkWeather(city) {
+    try {
+        const lang = langSelect.value;
+        const response = await fetch(`${weatherApiUrl}?city=${city}&lang=${lang}`);
+        if (!response.ok) {
+            errorDisplay.style.display = "block";
+            weatherSection.style.display = "none";
+            forecastSection.style.display = "none";
+            return;
+        }
+        const data = await response.json();
+        document.querySelector(".city").innerHTML = data.name;
+        document.querySelector(".temperature").innerHTML = `${Math.round(data.main.temp)}°C`;
+        document.querySelector(".humidity").innerHTML = `${data.main.humidity} %`;
+        document.querySelector(".wind").innerHTML = `${data.wind.speed} km/h`;
+        const weatherCondition = data.weather[0].main.toLowerCase();
+        weatherIcon.src = `Images/${weatherCondition}.png`;
+        weatherSection.style.display = "block";
+        errorDisplay.style.display = "none";
+        getForecast(city);
+        getAirQuality(city); 
+    } catch (error) {
+        console.error("Error fetching weather data:", error);
+        errorDisplay.style.display = "block";
+        weatherSection.style.display = "none";
+        forecastSection.style.display = "none";
+    }
+}
+async function getForecast(city) {
+    try {
+        const lang = langSelect.value;
+        const response = await fetch(`${forecastApiUrl}?city=${city}&lang=${lang}`);
+        if (!response.ok) {
+            forecastSection.style.display = "none";
+            return;
+        }
+        const data = await response.json();
+        const forecastContainer = document.querySelector(".forecast-container");
+        forecastContainer.innerHTML = "";
+        for (let i = 0; i < data.list.length; i += 8) {
+            const item = data.list[i];
+            const date = new Date(item.dt_txt).toLocaleDateString(lang, { weekday: "short" });
+            const temp = Math.round(item.main.temp);
+            const icon = `Images/${item.weather[0].main.toLowerCase()}.png`;
+            const forecastItem = document.createElement("div");
+            forecastItem.classList.add("forecast-item");
+            forecastItem.innerHTML = `
+                <p>${date}</p>
+                <img src="${icon}" width="50">
+                <p>${temp}°C</p>
+            `;
+            forecastContainer.appendChild(forecastItem);
+        }
+        forecastSection.style.display = "block";
+    } catch (error) {
+        console.error("Error fetching forecast data:", error);
+        forecastSection.style.display = "none";
+    }
+}
+async function getAirQuality(city) {
+    try {
+        const response = await fetch(`${airQualityApiUrl}?city=${city}`);
+        if (!response.ok) {
+            aqiDisplay.textContent = "N/A";
+            return;
+        }
+        const data = await response.json();
+        aqiDisplay.textContent = data.list[0].main.aqi; 
+    } catch (error) {
+        console.error("Error fetching air quality data:", error);
+        aqiDisplay.textContent = "N/A";
+    }
+}
+voiceSearchBtn.addEventListener("click", () => {
+    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    recognition.lang = "en-US";
+    recognition.start();
+    recognition.onresult = (event) => {
+        searchBox.value = event.results[0][0].transcript;
+        checkWeather(searchBox.value);
+    };
+    recognition.onerror = (event) => {
+        console.error("Speech recognition error:", event.error);
+    };
+});
+searchBtn.addEventListener("click", () => {
+    if (searchBox.value) {
+        checkWeather(searchBox.value);
+    }
+});
+langSelect.addEventListener("change", () => {
+    if (searchBox.value) {
+        checkWeather(searchBox.value);
+    }
+});
+weatherSection.style.display = "none";
+forecastSection.style.display = "none";
+errorDisplay.style.display = "none";
+</script>
+</body>
+</html>
+
